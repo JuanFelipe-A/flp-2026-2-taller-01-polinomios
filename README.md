@@ -17,7 +17,7 @@ parte del grupo.
 
 | Nombre completo | Código | Correo institucional |
 |---|---|---|
-| | | |
+|Juan Felipe Aristizabal |2459364-3743 |juan.felipe.aristizabal@correounivalle.edu.co|
 | | | |
 | | | |
 | | | |
