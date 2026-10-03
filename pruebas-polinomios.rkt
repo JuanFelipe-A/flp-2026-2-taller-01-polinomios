@@ -1,5 +1,5 @@
 #lang eopl
-;Autores: Nombre1 Codigo1, Nombre2 Codigo2
+;Autores: Juan Felipe Aristizabal 2459364-3743, Juan Huertas 2459505-3743
 
 ;; Taller 1 — Polinomios dispersos.
 ;; Parte 4: la misma batería de pruebas sobre las tres representaciones.
