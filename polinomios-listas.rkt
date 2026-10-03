@@ -1,5 +1,5 @@
 #lang eopl
-;Autores: Juan Felipe Aristizabal 2459364-3743, Juan Huertas 2459505-3743
+;Autores: Juan Felipe Aristizabal 2459364-3743, Juan Sebastian Huertas 2459505-3743
 
 ;; Taller 1 — Polinomios dispersos.
 ;; Parte 1: representación basada en listas.
@@ -18,7 +18,8 @@
  poli? nombre-var? sin-terminos? mas-terminos? termino? coef-ent? coef-rac? expo-nat?
  poli->var poli->terms nombre-var->s mas-terminos->term mas-terminos->resto
  termino->coef termino->expo coef-ent->n coef-rac->num coef-rac->den expo-nat->k
- polinomio-cero insertar-termino coeficiente-de eliminar-termino)
+ polinomio-cero insertar-termino coeficiente-de eliminar-termino
+ polinomio->pares)
 
 ;; Representación con listas: cada variante es una lista cuyo primer
 ;; elemento es la etiqueta.
@@ -193,20 +194,154 @@
 (define expo-nat->k
   (lambda (e) (extraer 'expo-nat->k expo-nat? 'expo-nat cadr e)))
 
-;; --- Interfaz del TAD (pendiente) ---
+;; ---- Interfaz: inicio (igual en listas y procedimientos) ----
+;; Solo usa constructores, predicados y extractores; nunca car, cdr ni list.
 
+;; exponente-concreto? : any -> boolean
+;; Verdadero si v es un entero exacto mayor o igual que 0.
+(define exponente-concreto?
+  (lambda (v)
+    (and (integer? v) (exact? v) (>= v 0))))
+
+;; coeficiente-concreto? : any -> boolean
+;; Verdadero si v es un número racional exacto (4, -3/2).
+(define coeficiente-concreto?
+  (lambda (v)
+    (and (rational? v) (exact? v))))
+
+;; concreto->coeficiente : numero -> coeficiente
+;; Traduce 4 a (coef-ent 4) y -3/2 a (coef-rac -3 2).
+(define concreto->coeficiente
+  (lambda (n)
+    (if (integer? n)
+        (coef-ent n)
+        (coef-rac (numerator n) (denominator n)))))
+
+;; coeficiente->concreto : coeficiente -> numero
+;; Camino inverso: (coef-ent 4) da 4 y (coef-rac -3 2) da -3/2.
+(define coeficiente->concreto
+  (lambda (c)
+    (if (coef-ent? c)
+        (coef-ent->n c)
+        (/ (coef-rac->num c) (coef-rac->den c)))))
+
+;; crear-termino : numero x natural -> termino
+;; Arma un término a partir de un coeficiente y un exponente concretos.
+(define crear-termino
+  (lambda (coeficiente exponente)
+    (termino (concreto->coeficiente coeficiente) (expo-nat exponente))))
+
+;; polinomio-cero : symbol -> polinomio
+;; Devuelve el polinomio nulo en la variable dada. Error si no es un símbolo.
 (define polinomio-cero
   (lambda (variable)
-    (eopl:error 'polinomio-cero "Sin implementar")))
+    (if (symbol? variable)
+        (poli (nombre-var variable) (sin-terminos))
+        (eopl:error 'polinomio-cero "La variable debe ser un simbolo"))))
 
+;; insertar-termino : polinomio x numero x natural -> polinomio
+;; Devuelve el polinomio con el término insertado en su posición. Si el
+;; exponente ya existe suma los coeficientes (y quita el término si da 0); con
+;; coeficiente 0 no cambia nada. Error si el exponente no es un entero no
+;; negativo o si el coeficiente no es un número exacto.
 (define insertar-termino
   (lambda (polinomio coeficiente exponente)
     (eopl:error 'insertar-termino "Sin implementar")))
 
+;; coeficiente-de : polinomio x natural -> numero
+;; Devuelve el coeficiente del término con ese exponente. Error si no existe.
 (define coeficiente-de
   (lambda (polinomio exponente)
     (eopl:error 'coeficiente-de "Sin implementar")))
 
+;; eliminar-termino : polinomio x natural -> polinomio
+;; Devuelve el polinomio sin el término con ese exponente. Error si no existe.
 (define eliminar-termino
   (lambda (polinomio exponente)
     (eopl:error 'eliminar-termino "Sin implementar")))
+
+;; polinomio->pares : polinomio -> lista de pares (coeficiente . exponente)
+;; Muestra el polinomio como datos de Racket, de mayor a menor exponente.
+;; No es parte de la interfaz; se usa en los ejemplos y en las pruebas.
+(define polinomio->pares
+  (lambda (polinomio)
+    (letrec ((pares
+              (lambda (terminos)
+                (if (sin-terminos? terminos)
+                    '()
+                    (let ((t (mas-terminos->term terminos)))
+                      (cons (cons (coeficiente->concreto (termino->coef t))
+                                  (expo-nat->k (termino->expo t)))
+                            (pares (mas-terminos->resto terminos))))))))
+      (pares (poli->terms polinomio)))))
+
+;; ---- Interfaz: fin ----
+
+;; ---- Ejemplos de construcción y observadores ----
+
+;; 1. Polinomio nulo en x.
+(define ejemplo-nulo
+  (poli (nombre-var 'x) (sin-terminos)))
+;; (poli? ejemplo-nulo)                              => #t
+;; (sin-terminos? (poli->terms ejemplo-nulo))        => #t
+;; (nombre-var->s (poli->var ejemplo-nulo))          => x
+
+;; 2. 7x^3
+(define ejemplo-un-termino
+  (poli (nombre-var 'x)
+        (mas-terminos (termino (coef-ent 7) (expo-nat 3))
+                      (sin-terminos))))
+;; (mas-terminos? (poli->terms ejemplo-un-termino))  => #t
+;; (coef-ent->n (termino->coef
+;;   (mas-terminos->term (poli->terms ejemplo-un-termino))))   => 7
+;; (expo-nat->k (termino->expo
+;;   (mas-terminos->term (poli->terms ejemplo-un-termino))))   => 3
+
+;; 3. (3/4)x^5 - 2x
+(define ejemplo-racional
+  (poli (nombre-var 'x)
+        (mas-terminos (termino (coef-rac 3 4) (expo-nat 5))
+          (mas-terminos (termino (coef-ent -2) (expo-nat 1))
+            (sin-terminos)))))
+;; (coef-rac? (termino->coef
+;;   (mas-terminos->term (poli->terms ejemplo-racional))))     => #t
+;; (coef-rac->num (termino->coef
+;;   (mas-terminos->term (poli->terms ejemplo-racional))))     => 3
+;; (coef-rac->den (termino->coef
+;;   (mas-terminos->term (poli->terms ejemplo-racional))))     => 4
+
+;; 4. 4x^5 - (3/2)x^2 + 7
+(define ejemplo-tres-terminos
+  (poli (nombre-var 'x)
+        (mas-terminos (termino (coef-ent 4) (expo-nat 5))
+          (mas-terminos (termino (coef-rac -3 2) (expo-nat 2))
+            (mas-terminos (termino (coef-ent 7) (expo-nat 0))
+              (sin-terminos))))))
+;; (polinomio->pares ejemplo-tres-terminos)          => ((4 . 5) (-3/2 . 2) (7 . 0))
+;; (termino? (mas-terminos->term
+;;   (mas-terminos->resto (poli->terms ejemplo-tres-terminos)))) => #t
+
+;; 5. El mismo polinomio del ejemplo 4, pero en la variable y.
+(define ejemplo-en-y
+  (poli (nombre-var 'y)
+        (poli->terms ejemplo-tres-terminos)))
+;; (nombre-var->s (poli->var ejemplo-en-y))          => y
+;; (polinomio->pares ejemplo-en-y)                   => ((4 . 5) (-3/2 . 2) (7 . 0))
+
+;; ---- Ejemplos de polinomio-cero ----
+
+;; 1. Polinomio nulo en x.
+(define cero-x (polinomio-cero 'x))
+;; (polinomio->pares cero-x)                         => ()
+;; (nombre-var->s (poli->var cero-x))                => x
+
+;; 2. Polinomio nulo en y.
+(define cero-y (polinomio-cero 'y))
+;; (nombre-var->s (poli->var cero-y))                => y
+
+;; 3. No tiene términos.
+;; (poli? cero-x)                                    => #t
+;; (sin-terminos? (poli->terms cero-x))              => #t
+
+;; 4. Error: la variable debe ser un símbolo.
+;; (polinomio-cero "x")   => error: La variable debe ser un simbolo

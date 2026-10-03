@@ -1,5 +1,5 @@
 #lang eopl
-;Autores: Juan Felipe Aristizabal 2459364-3743, Juan Huertas 2459505-3743
+;Autores: Juan Felipe Aristizabal 2459364-3743, Juan Sebastian Huertas 2459505-3743
 
 ;; Taller 1 — Polinomios dispersos.
 ;; Parte 3: representación con datatypes.
