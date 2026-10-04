@@ -21,15 +21,14 @@
  polinomio-cero insertar-termino coeficiente-de eliminar-termino
  polinomio->pares)
 
-;; Representación con listas: cada variante es una lista cuyo primer
-;; elemento es la etiqueta.
+;; Cada dato es una lista y su primer elemento es una etiqueta:
 ;;   (poli <nombre-var> <terminos>)        (nombre-var <symbol>)
 ;;   (sin-terminos)                        (mas-terminos <termino> <terminos>)
 ;;   (termino <coeficiente> <exponente>)   (coef-ent <int>)
 ;;   (coef-rac <int> <int>)                (expo-nat <int>)
 
 ;; es-variante? : any x symbol x int -> boolean
-;; Verdadero si x es una lista de n elementos que empieza con la etiqueta dada.
+;; Dice si x es una lista de n elementos que empieza con esa etiqueta.
 (define es-variante?
   (lambda (x etiqueta n)
     (and (list? x)
@@ -37,7 +36,7 @@
          (eq? (car x) etiqueta))))
 
 ;; extraer : symbol x (any -> boolean) x symbol x (list -> any) x any -> any
-;; Aplica el selector al dato si el predicado lo acepta; si no, levanta un error.
+;; Saca un campo del dato. Si el dato no es de la variante esperada, da error.
 (define extraer
   (lambda (quien variante? variante seleccionar dato)
     (if (variante? dato)
@@ -48,49 +47,49 @@
 ;; --- Constructores ---
 
 ;; poli : nombre-var x terminos -> polinomio
-;; Construye un polinomio con su variable y su lista de términos.
+;; Arma un polinomio con su variable y sus términos.
 (define poli
   (lambda (var terms)
     (list 'poli var terms)))
 
 ;; nombre-var : symbol -> nombre-var
-;; Construye la variable del polinomio.
+;; Arma la variable del polinomio.
 (define nombre-var
   (lambda (s)
     (list 'nombre-var s)))
 
 ;; sin-terminos : () -> terminos
-;; Construye la lista de términos vacía.
+;; Arma la lista de términos vacía.
 (define sin-terminos
   (lambda ()
     (list 'sin-terminos)))
 
 ;; mas-terminos : termino x terminos -> terminos
-;; Construye una lista de términos con term al frente y resto detrás.
+;; Arma una lista con term al frente y el resto detrás.
 (define mas-terminos
   (lambda (term resto)
     (list 'mas-terminos term resto)))
 
 ;; termino : coeficiente x exponente -> termino
-;; Construye un término.
+;; Arma un término.
 (define termino
   (lambda (coef expo)
     (list 'termino coef expo)))
 
 ;; coef-ent : int -> coeficiente
-;; Construye un coeficiente entero.
+;; Arma un coeficiente entero.
 (define coef-ent
   (lambda (n)
     (list 'coef-ent n)))
 
 ;; coef-rac : int x int -> coeficiente
-;; Construye un coeficiente racional con numerador y denominador.
+;; Arma un coeficiente racional (fracción).
 (define coef-rac
   (lambda (num den)
     (list 'coef-rac num den)))
 
 ;; expo-nat : int -> exponente
-;; Construye un exponente.
+;; Arma un exponente.
 (define expo-nat
   (lambda (k)
     (list 'expo-nat k)))
@@ -195,22 +194,22 @@
   (lambda (e) (extraer 'expo-nat->k expo-nat? 'expo-nat cadr e)))
 
 ;; ---- Interfaz: inicio (igual en listas y procedimientos) ----
-;; Solo usa constructores, predicados y extractores; nunca car, cdr ni list.
+;; Aquí solo se usan constructores, predicados y extractores (nada de car ni cdr).
 
 ;; exponente-concreto? : any -> boolean
-;; Verdadero si v es un entero exacto mayor o igual que 0.
+;; Dice si v es un entero exacto mayor o igual a 0.
 (define exponente-concreto?
   (lambda (v)
     (and (integer? v) (exact? v) (>= v 0))))
 
 ;; coeficiente-concreto? : any -> boolean
-;; Verdadero si v es un número racional exacto (4, -3/2).
+;; Dice si v es un número exacto, entero o fracción (4, -3/2).
 (define coeficiente-concreto?
   (lambda (v)
     (and (rational? v) (exact? v))))
 
 ;; concreto->coeficiente : numero -> coeficiente
-;; Traduce 4 a (coef-ent 4) y -3/2 a (coef-rac -3 2).
+;; Pasa un número de Racket a coeficiente: 4 -> (coef-ent 4), -3/2 -> (coef-rac -3 2).
 (define concreto->coeficiente
   (lambda (n)
     (if (integer? n)
@@ -218,7 +217,7 @@
         (coef-rac (numerator n) (denominator n)))))
 
 ;; coeficiente->concreto : coeficiente -> numero
-;; Camino inverso: (coef-ent 4) da 4 y (coef-rac -3 2) da -3/2.
+;; Hace lo contrario: (coef-ent 4) -> 4, (coef-rac -3 2) -> -3/2.
 (define coeficiente->concreto
   (lambda (c)
     (if (coef-ent? c)
@@ -226,43 +225,75 @@
         (/ (coef-rac->num c) (coef-rac->den c)))))
 
 ;; crear-termino : numero x natural -> termino
-;; Arma un término a partir de un coeficiente y un exponente concretos.
+;; Arma un término con un coeficiente y un exponente de Racket.
 (define crear-termino
   (lambda (coeficiente exponente)
     (termino (concreto->coeficiente coeficiente) (expo-nat exponente))))
 
 ;; polinomio-cero : symbol -> polinomio
-;; Devuelve el polinomio nulo en la variable dada. Error si no es un símbolo.
+;; Devuelve el polinomio 0 en esa variable. Da error si no es un símbolo.
 (define polinomio-cero
   (lambda (variable)
     (if (symbol? variable)
         (poli (nombre-var variable) (sin-terminos))
         (eopl:error 'polinomio-cero "La variable debe ser un simbolo"))))
 
+;; insertar-en-terminos : terminos x numero x natural -> terminos
+;; Recorre la lista una sola vez. Si el exponente actual es mayor, sigue con el
+;; resto; si es menor, el término nuevo va antes; si es igual, suma los
+;; coeficientes (si da 0 quita el término).
+(define insertar-en-terminos
+  (lambda (terminos coeficiente exponente)
+    (if (sin-terminos? terminos)
+        (mas-terminos (crear-termino coeficiente exponente) terminos)
+        (let* ((actual (mas-terminos->term terminos))
+               (resto  (mas-terminos->resto terminos))
+               (expo   (expo-nat->k (termino->expo actual))))
+          (cond
+            ((> expo exponente)
+             (mas-terminos actual (insertar-en-terminos resto coeficiente exponente)))
+            ((< expo exponente)
+             (mas-terminos (crear-termino coeficiente exponente) terminos))
+            (else
+             (let ((suma (+ (coeficiente->concreto (termino->coef actual)) coeficiente)))
+               (if (zero? suma)
+                   resto
+                   (mas-terminos (crear-termino suma exponente) resto)))))))))
+
 ;; insertar-termino : polinomio x numero x natural -> polinomio
-;; Devuelve el polinomio con el término insertado en su posición. Si el
-;; exponente ya existe suma los coeficientes (y quita el término si da 0); con
-;; coeficiente 0 no cambia nada. Error si el exponente no es un entero no
-;; negativo o si el coeficiente no es un número exacto.
+;; Inserta el término en su lugar. Si el exponente ya está, suma los
+;; coeficientes (si da 0 quita el término). Con coeficiente 0 no cambia nada.
+;; Da error si el exponente no es un entero >= 0 o el coeficiente no es exacto.
 (define insertar-termino
   (lambda (polinomio coeficiente exponente)
-    (eopl:error 'insertar-termino "Sin implementar")))
+    (cond
+      ((not (exponente-concreto? exponente))
+       (eopl:error 'insertar-termino "El exponente debe ser un entero no negativo"))
+      ((not (coeficiente-concreto? coeficiente))
+       (eopl:error 'insertar-termino "El coeficiente debe ser un numero exacto"))
+      ((not (poli? polinomio))
+       (eopl:error 'insertar-termino "El primer argumento debe ser un polinomio"))
+      ((zero? coeficiente)
+       polinomio)
+      (else
+       (poli (poli->var polinomio)
+             (insertar-en-terminos (poli->terms polinomio) coeficiente exponente))))))
 
 ;; coeficiente-de : polinomio x natural -> numero
-;; Devuelve el coeficiente del término con ese exponente. Error si no existe.
+;; Devuelve el coeficiente del término con ese exponente. Da error si no existe.
 (define coeficiente-de
   (lambda (polinomio exponente)
     (eopl:error 'coeficiente-de "Sin implementar")))
 
 ;; eliminar-termino : polinomio x natural -> polinomio
-;; Devuelve el polinomio sin el término con ese exponente. Error si no existe.
+;; Devuelve el polinomio sin el término con ese exponente. Da error si no existe.
 (define eliminar-termino
   (lambda (polinomio exponente)
     (eopl:error 'eliminar-termino "Sin implementar")))
 
 ;; polinomio->pares : polinomio -> lista de pares (coeficiente . exponente)
-;; Muestra el polinomio como datos de Racket, de mayor a menor exponente.
-;; No es parte de la interfaz; se usa en los ejemplos y en las pruebas.
+;; Muestra el polinomio como lista de pares, de mayor a menor exponente.
+;; Sirve para ver los resultados; no es parte de la interfaz.
 (define polinomio->pares
   (lambda (polinomio)
     (letrec ((pares
@@ -277,7 +308,7 @@
 
 ;; ---- Interfaz: fin ----
 
-;; ---- Ejemplos de construcción y observadores ----
+;; ---- Ejemplos de construcción ----
 
 ;; 1. Polinomio nulo en x.
 (define ejemplo-nulo
@@ -343,5 +374,57 @@
 ;; (poli? cero-x)                                    => #t
 ;; (sin-terminos? (poli->terms cero-x))              => #t
 
-;; 4. Error: la variable debe ser un símbolo.
+;; 4. Sobre el nulo se puede insertar un término.
+(define cero-mas-siete (insertar-termino (polinomio-cero 'z) 7 0))
+;; (polinomio->pares cero-mas-siete)                 => ((7 . 0))
+
+;; 5. Error: la variable debe ser un símbolo.
 ;; (polinomio-cero "x")   => error: La variable debe ser un simbolo
+
+;; ---- Ejemplos de insertar-termino ----
+
+;; p = 4x^5 - (3/2)x^2 + 7, armado solo con la interfaz.
+(define p
+  (insertar-termino
+   (insertar-termino
+    (insertar-termino (polinomio-cero 'x) 7 0)
+    -3/2 2)
+   4 5))
+;; (polinomio->pares p)                              => ((4 . 5) (-3/2 . 2) (7 . 0))
+
+;; 1. Insertar en el polinomio nulo.
+;; (polinomio->pares (insertar-termino (polinomio-cero 'x) 7 0))   => ((7 . 0))
+
+;; 2. Exponente nuevo, queda en el medio.
+(define p-con-x3 (insertar-termino p 2 3))
+;; (polinomio->pares p-con-x3)                       => ((4 . 5) (2 . 3) (-3/2 . 2) (7 . 0))
+
+;; 3. Exponente nuevo y mayor que todos, queda de primero.
+(define p-con-x9 (insertar-termino p 1 9))
+;; (polinomio->pares p-con-x9)                       => ((1 . 9) (4 . 5) (-3/2 . 2) (7 . 0))
+
+;; 4. Exponente nuevo y menor que todos, queda de último.
+(define q-al-final
+  (insertar-termino (insertar-termino (polinomio-cero 'x) 4 5) 9 3))
+;; (polinomio->pares q-al-final)                     => ((4 . 5) (9 . 3))
+
+;; 5. El exponente ya existe: se suman los coeficientes.
+(define p-suma (insertar-termino p 1 2))
+;; (polinomio->pares p-suma)                         => ((4 . 5) (-1/2 . 2) (7 . 0))
+
+;; 6. La suma da cero: el término desaparece.
+(define p-cancelado (insertar-termino p 3/2 2))
+;; (polinomio->pares p-cancelado)                    => ((4 . 5) (7 . 0))
+
+;; 7. Coeficiente 0: el polinomio no cambia.
+;; (polinomio->pares (insertar-termino p 0 2))       => ((4 . 5) (-3/2 . 2) (7 . 0))
+;; (polinomio->pares (insertar-termino p 0 8))       => ((4 . 5) (-3/2 . 2) (7 . 0))
+
+;; 8. Error: exponente negativo.
+;; (insertar-termino p 5 -1)  => error: El exponente debe ser un entero no negativo
+
+;; 9. Error: coeficiente no exacto.
+;; (insertar-termino p 1.5 2) => error: El coeficiente debe ser un numero exacto
+
+;; Pendiente (compañero): 5 ejemplos de coeficiente-de y 5 de eliminar-termino,
+;; cada grupo con su caso de error.
