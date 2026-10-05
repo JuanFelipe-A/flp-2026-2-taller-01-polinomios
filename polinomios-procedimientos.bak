@@ -2,7 +2,7 @@
 ;Autores: Juan Felipe Aristizabal 2459364-3743, Juan Sebastian Huertas 2459505-3743
 
 ;; Taller 1 — Polinomios dispersos.
-;; Parte 1: representación basada en listas.
+;; Parte 2: representación basada en procedimientos.
 ;;
 ;; Interfaz del TAD. Cada función va comentada con su nombre, su contrato
 ;; (entrada -> salida) y su propósito, y ninguna recorre la lista de términos
@@ -21,26 +21,24 @@
  polinomio-cero insertar-termino coeficiente-de eliminar-termino
  polinomio->pares)
 
-;; Cada dato es una lista y su primer elemento es una etiqueta:
-;;   (poli <nombre-var> <terminos>)        (nombre-var <symbol>)
-;;   (sin-terminos)                        (mas-terminos <termino> <terminos>)
-;;   (termino <coeficiente> <exponente>)   (coef-ent <int>)
-;;   (coef-rac <int> <int>)                (expo-nat <int>)
+;; Representación con procedimientos: cada dato es un procedimiento que recibe
+;; un mensaje y responde. El mensaje 'etiqueta devuelve el nombre de la variante
+;; y los demás mensajes devuelven los campos. Desde afuera no se ve qué hay
+;; adentro: solo se puede preguntar.
 
-;; es-variante? : any x symbol x int -> boolean
-;; Dice si x es una lista de n elementos que empieza con esa etiqueta.
+;; es-variante? : any x symbol -> boolean
+;; Dice si x es un dato de la variante con esa etiqueta.
 (define es-variante?
-  (lambda (x etiqueta n)
-    (and (list? x)
-         (= (length x) n)
-         (eq? (car x) etiqueta))))
+  (lambda (x etiqueta)
+    (and (procedure? x)
+         (eq? (x 'etiqueta) etiqueta))))
 
-;; extraer : symbol x (any -> boolean) x symbol x (list -> any) x any -> any
-;; Saca un campo del dato. Si el dato no es de la variante esperada, da error.
+;; extraer : symbol x (any -> boolean) x symbol x symbol x any -> any
+;; Le pide el campo al dato. Si el dato no es de la variante esperada, da error.
 (define extraer
-  (lambda (quien variante? variante seleccionar dato)
+  (lambda (quien variante? variante campo dato)
     (if (variante? dato)
-        (seleccionar dato)
+        (dato campo)
         (eopl:error quien "Se esperaba un dato de la variante ~s y se recibio ~s"
                     variante dato))))
 
@@ -50,148 +48,175 @@
 ;; Arma un polinomio con su variable y sus términos.
 (define poli
   (lambda (var terms)
-    (list 'poli var terms)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'poli)
+            ((eq? mensaje 'var) var)
+            ((eq? mensaje 'terms) terms)
+            (else (eopl:error 'poli "Mensaje desconocido: ~s" mensaje))))))
 
 ;; nombre-var : symbol -> nombre-var
 ;; Arma la variable del polinomio.
 (define nombre-var
   (lambda (s)
-    (list 'nombre-var s)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'nombre-var)
+            ((eq? mensaje 's) s)
+            (else (eopl:error 'nombre-var "Mensaje desconocido: ~s" mensaje))))))
 
 ;; sin-terminos : () -> terminos
 ;; Arma la lista de términos vacía.
 (define sin-terminos
   (lambda ()
-    (list 'sin-terminos)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'sin-terminos)
+            (else (eopl:error 'sin-terminos "Mensaje desconocido: ~s" mensaje))))))
 
 ;; mas-terminos : termino x terminos -> terminos
 ;; Arma una lista con term al frente y el resto detrás.
 (define mas-terminos
   (lambda (term resto)
-    (list 'mas-terminos term resto)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'mas-terminos)
+            ((eq? mensaje 'term) term)
+            ((eq? mensaje 'resto) resto)
+            (else (eopl:error 'mas-terminos "Mensaje desconocido: ~s" mensaje))))))
 
 ;; termino : coeficiente x exponente -> termino
 ;; Arma un término.
 (define termino
   (lambda (coef expo)
-    (list 'termino coef expo)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'termino)
+            ((eq? mensaje 'coef) coef)
+            ((eq? mensaje 'expo) expo)
+            (else (eopl:error 'termino "Mensaje desconocido: ~s" mensaje))))))
 
 ;; coef-ent : int -> coeficiente
 ;; Arma un coeficiente entero.
 (define coef-ent
   (lambda (n)
-    (list 'coef-ent n)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'coef-ent)
+            ((eq? mensaje 'n) n)
+            (else (eopl:error 'coef-ent "Mensaje desconocido: ~s" mensaje))))))
 
 ;; coef-rac : int x int -> coeficiente
 ;; Arma un coeficiente racional (fracción).
 (define coef-rac
   (lambda (num den)
-    (list 'coef-rac num den)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'coef-rac)
+            ((eq? mensaje 'num) num)
+            ((eq? mensaje 'den) den)
+            (else (eopl:error 'coef-rac "Mensaje desconocido: ~s" mensaje))))))
 
 ;; expo-nat : int -> exponente
 ;; Arma un exponente.
 (define expo-nat
   (lambda (k)
-    (list 'expo-nat k)))
+    (lambda (mensaje)
+      (cond ((eq? mensaje 'etiqueta) 'expo-nat)
+            ((eq? mensaje 'k) k)
+            (else (eopl:error 'expo-nat "Mensaje desconocido: ~s" mensaje))))))
 
 ;; --- Predicados ---
 
 ;; poli? : any -> boolean
-;; Verdadero si x fue construido con poli.
+;; Dice si x fue construido con poli.
 (define poli?
-  (lambda (x) (es-variante? x 'poli 3)))
+  (lambda (x) (es-variante? x 'poli)))
 
 ;; nombre-var? : any -> boolean
-;; Verdadero si x fue construido con nombre-var.
+;; Dice si x fue construido con nombre-var.
 (define nombre-var?
-  (lambda (x) (es-variante? x 'nombre-var 2)))
+  (lambda (x) (es-variante? x 'nombre-var)))
 
 ;; sin-terminos? : any -> boolean
-;; Verdadero si x fue construido con sin-terminos.
+;; Dice si x fue construido con sin-terminos.
 (define sin-terminos?
-  (lambda (x) (es-variante? x 'sin-terminos 1)))
+  (lambda (x) (es-variante? x 'sin-terminos)))
 
 ;; mas-terminos? : any -> boolean
-;; Verdadero si x fue construido con mas-terminos.
+;; Dice si x fue construido con mas-terminos.
 (define mas-terminos?
-  (lambda (x) (es-variante? x 'mas-terminos 3)))
+  (lambda (x) (es-variante? x 'mas-terminos)))
 
 ;; termino? : any -> boolean
-;; Verdadero si x fue construido con termino.
+;; Dice si x fue construido con termino.
 (define termino?
-  (lambda (x) (es-variante? x 'termino 3)))
+  (lambda (x) (es-variante? x 'termino)))
 
 ;; coef-ent? : any -> boolean
-;; Verdadero si x fue construido con coef-ent.
+;; Dice si x fue construido con coef-ent.
 (define coef-ent?
-  (lambda (x) (es-variante? x 'coef-ent 2)))
+  (lambda (x) (es-variante? x 'coef-ent)))
 
 ;; coef-rac? : any -> boolean
-;; Verdadero si x fue construido con coef-rac.
+;; Dice si x fue construido con coef-rac.
 (define coef-rac?
-  (lambda (x) (es-variante? x 'coef-rac 3)))
+  (lambda (x) (es-variante? x 'coef-rac)))
 
 ;; expo-nat? : any -> boolean
-;; Verdadero si x fue construido con expo-nat.
+;; Dice si x fue construido con expo-nat.
 (define expo-nat?
-  (lambda (x) (es-variante? x 'expo-nat 2)))
+  (lambda (x) (es-variante? x 'expo-nat)))
 
 ;; --- Extractores ---
 
 ;; poli->var : polinomio -> nombre-var
 ;; Devuelve la variable del polinomio.
 (define poli->var
-  (lambda (p) (extraer 'poli->var poli? 'poli cadr p)))
+  (lambda (p) (extraer 'poli->var poli? 'poli 'var p)))
 
 ;; poli->terms : polinomio -> terminos
 ;; Devuelve la lista de términos del polinomio.
 (define poli->terms
-  (lambda (p) (extraer 'poli->terms poli? 'poli caddr p)))
+  (lambda (p) (extraer 'poli->terms poli? 'poli 'terms p)))
 
 ;; nombre-var->s : nombre-var -> symbol
 ;; Devuelve el símbolo de la variable.
 (define nombre-var->s
-  (lambda (v) (extraer 'nombre-var->s nombre-var? 'nombre-var cadr v)))
+  (lambda (v) (extraer 'nombre-var->s nombre-var? 'nombre-var 's v)))
 
 ;; mas-terminos->term : terminos -> termino
 ;; Devuelve el primer término de una lista no vacía.
 (define mas-terminos->term
-  (lambda (ts) (extraer 'mas-terminos->term mas-terminos? 'mas-terminos cadr ts)))
+  (lambda (ts) (extraer 'mas-terminos->term mas-terminos? 'mas-terminos 'term ts)))
 
 ;; mas-terminos->resto : terminos -> terminos
 ;; Devuelve la lista sin su primer término.
 (define mas-terminos->resto
-  (lambda (ts) (extraer 'mas-terminos->resto mas-terminos? 'mas-terminos caddr ts)))
+  (lambda (ts) (extraer 'mas-terminos->resto mas-terminos? 'mas-terminos 'resto ts)))
 
 ;; termino->coef : termino -> coeficiente
 ;; Devuelve el coeficiente del término.
 (define termino->coef
-  (lambda (t) (extraer 'termino->coef termino? 'termino cadr t)))
+  (lambda (t) (extraer 'termino->coef termino? 'termino 'coef t)))
 
 ;; termino->expo : termino -> exponente
 ;; Devuelve el exponente del término.
 (define termino->expo
-  (lambda (t) (extraer 'termino->expo termino? 'termino caddr t)))
+  (lambda (t) (extraer 'termino->expo termino? 'termino 'expo t)))
 
 ;; coef-ent->n : coeficiente -> int
 ;; Devuelve el entero de un coef-ent.
 (define coef-ent->n
-  (lambda (c) (extraer 'coef-ent->n coef-ent? 'coef-ent cadr c)))
+  (lambda (c) (extraer 'coef-ent->n coef-ent? 'coef-ent 'n c)))
 
 ;; coef-rac->num : coeficiente -> int
 ;; Devuelve el numerador de un coef-rac.
 (define coef-rac->num
-  (lambda (c) (extraer 'coef-rac->num coef-rac? 'coef-rac cadr c)))
+  (lambda (c) (extraer 'coef-rac->num coef-rac? 'coef-rac 'num c)))
 
 ;; coef-rac->den : coeficiente -> int
 ;; Devuelve el denominador de un coef-rac.
 (define coef-rac->den
-  (lambda (c) (extraer 'coef-rac->den coef-rac? 'coef-rac caddr c)))
+  (lambda (c) (extraer 'coef-rac->den coef-rac? 'coef-rac 'den c)))
 
 ;; expo-nat->k : exponente -> int
 ;; Devuelve el entero de un expo-nat.
 (define expo-nat->k
-  (lambda (e) (extraer 'expo-nat->k expo-nat? 'expo-nat cadr e)))
+  (lambda (e) (extraer 'expo-nat->k expo-nat? 'expo-nat 'k e)))
 
 ;; ---- Interfaz: inicio (igual en listas y procedimientos) ----
 ;; Aquí solo se usan constructores, predicados y extractores (nada de car ni cdr).
@@ -279,64 +304,17 @@
        (poli (poli->var polinomio)
              (insertar-en-terminos (poli->terms polinomio) coeficiente exponente))))))
 
-;; buscar-coeficiente : terminos x natural -> numero
-;; Recorre la lista una sola vez y corta apenas el exponente actual es menor que el buscado.
-(define buscar-coeficiente
-  (lambda (terminos exponente)
-    (if (sin-terminos? terminos)
-        (eopl:error 'coeficiente-de "El polinomio no tiene termino con ese exponente")
-        (let* ((actual (mas-terminos->term terminos))
-               (resto  (mas-terminos->resto terminos))
-               (expo   (expo-nat->k (termino->expo actual))))
-          (cond
-            ((> expo exponente)
-             (buscar-coeficiente resto exponente))
-            ((= expo exponente)
-             (coeficiente->concreto (termino->coef actual)))
-            (else
-             (eopl:error 'coeficiente-de "El polinomio no tiene termino con ese exponente")))))))
-
 ;; coeficiente-de : polinomio x natural -> numero
 ;; Devuelve el coeficiente del término con ese exponente. Da error si no existe.
 (define coeficiente-de
   (lambda (polinomio exponente)
-    (cond
-      ((not (exponente-concreto? exponente))
-       (eopl:error 'coeficiente-de "El exponente debe ser un entero no negativo"))
-      ((not (poli? polinomio))
-       (eopl:error 'coeficiente-de "El primer argumento debe ser un polinomio"))
-      (else
-       (buscar-coeficiente (poli->terms polinomio) exponente)))))
-
-;; eliminar-de-terminos : terminos x natural -> terminos
-;; Recorre la lista una sola vez y corta apenas el exponente actual es menor que el buscado.
-(define eliminar-de-terminos
-  (lambda (terminos exponente)
-    (if (sin-terminos? terminos)
-        (eopl:error 'eliminar-termino "El polinomio no tiene termino con ese exponente")
-        (let* ((actual (mas-terminos->term terminos))
-               (resto  (mas-terminos->resto terminos))
-               (expo   (expo-nat->k (termino->expo actual))))
-          (cond
-            ((> expo exponente)
-             (mas-terminos actual (eliminar-de-terminos resto exponente)))
-            ((= expo exponente)
-             resto)
-            (else
-             (eopl:error 'eliminar-termino "El polinomio no tiene termino con ese exponente")))))))
+    (eopl:error 'coeficiente-de "Sin implementar")))
 
 ;; eliminar-termino : polinomio x natural -> polinomio
 ;; Devuelve el polinomio sin el término con ese exponente. Da error si no existe.
 (define eliminar-termino
   (lambda (polinomio exponente)
-    (cond
-      ((not (exponente-concreto? exponente))
-       (eopl:error 'eliminar-termino "El exponente debe ser un entero no negativo"))
-      ((not (poli? polinomio))
-       (eopl:error 'eliminar-termino "El primer argumento debe ser un polinomio"))
-      (else
-       (poli (poli->var polinomio)
-             (eliminar-de-terminos (poli->terms polinomio) exponente))))))
+    (eopl:error 'eliminar-termino "Sin implementar")))
 
 ;; polinomio->pares : polinomio -> lista de pares (coeficiente . exponente)
 ;; Muestra el polinomio como lista de pares, de mayor a menor exponente.
@@ -473,42 +451,5 @@
 ;; 9. Error: coeficiente no exacto.
 ;; (insertar-termino p 1.5 2) => error: El coeficiente debe ser un numero exacto
 
-;; ---- Ejemplos de coeficiente-de ----
-
-;; 1. Exponente al inicio de la lista.
-;; (coeficiente-de p 5)                              => 4
-
-;; 2. Exponente en el medio, coeficiente racional.
-;; (coeficiente-de p 2)                              => -3/2
-
-;; 3. Exponente al final (término independiente).
-;; (coeficiente-de p 0)                              => 7
-
-;; 4. Error: el polinomio nulo no tiene términos.
-;; (coeficiente-de (polinomio-cero 'x) 0)
-;;   => error: El polinomio no tiene termino con ese exponente
-
-;; 5. Error: exponente inexistente (la búsqueda corta en el término de x^2).
-;; (coeficiente-de p 3)
-;;   => error: El polinomio no tiene termino con ese exponente
-
-;; ---- Ejemplos de eliminar-termino ----
-
-;; 1. Eliminar el término del inicio.
-;; (polinomio->pares (eliminar-termino p 5))         => ((-3/2 . 2) (7 . 0))
-
-;; 2. Eliminar el término del medio (coeficiente racional).
-;; (polinomio->pares (eliminar-termino p 2))         => ((4 . 5) (7 . 0))
-
-;; 3. Eliminar el término del final.
-;; (polinomio->pares (eliminar-termino p 0))         => ((4 . 5) (-3/2 . 2))
-
-;; 4. Eliminar el único término deja el polinomio nulo.
-;; (polinomio->pares
-;;   (eliminar-termino (insertar-termino (polinomio-cero 'x) 7 3) 3))   => ()
-
-;; 5. Error: exponente inexistente, y error sobre el polinomio nulo.
-;; (eliminar-termino p 3)
-;;   => error: El polinomio no tiene termino con ese exponente
-;; (eliminar-termino (polinomio-cero 'x) 0)
-;;   => error: El polinomio no tiene termino con ese exponente
+;; Pendiente (compañero): 5 ejemplos de coeficiente-de y 5 de eliminar-termino,
+;; cada grupo con su caso de error.

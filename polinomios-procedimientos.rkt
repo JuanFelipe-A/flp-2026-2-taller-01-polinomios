@@ -304,17 +304,64 @@
        (poli (poli->var polinomio)
              (insertar-en-terminos (poli->terms polinomio) coeficiente exponente))))))
 
+;; buscar-coeficiente : terminos x natural -> numero
+;; Recorre la lista una sola vez y corta apenas el exponente actual es menor que el buscado.
+(define buscar-coeficiente
+  (lambda (terminos exponente)
+    (if (sin-terminos? terminos)
+        (eopl:error 'coeficiente-de "El polinomio no tiene termino con ese exponente")
+        (let* ((actual (mas-terminos->term terminos))
+               (resto  (mas-terminos->resto terminos))
+               (expo   (expo-nat->k (termino->expo actual))))
+          (cond
+            ((> expo exponente)
+             (buscar-coeficiente resto exponente))
+            ((= expo exponente)
+             (coeficiente->concreto (termino->coef actual)))
+            (else
+             (eopl:error 'coeficiente-de "El polinomio no tiene termino con ese exponente")))))))
+
 ;; coeficiente-de : polinomio x natural -> numero
 ;; Devuelve el coeficiente del término con ese exponente. Da error si no existe.
 (define coeficiente-de
   (lambda (polinomio exponente)
-    (eopl:error 'coeficiente-de "Sin implementar")))
+    (cond
+      ((not (exponente-concreto? exponente))
+       (eopl:error 'coeficiente-de "El exponente debe ser un entero no negativo"))
+      ((not (poli? polinomio))
+       (eopl:error 'coeficiente-de "El primer argumento debe ser un polinomio"))
+      (else
+       (buscar-coeficiente (poli->terms polinomio) exponente)))))
+
+;; eliminar-de-terminos : terminos x natural -> terminos
+;; Recorre la lista una sola vez y corta apenas el exponente actual es menor que el buscado.
+(define eliminar-de-terminos
+  (lambda (terminos exponente)
+    (if (sin-terminos? terminos)
+        (eopl:error 'eliminar-termino "El polinomio no tiene termino con ese exponente")
+        (let* ((actual (mas-terminos->term terminos))
+               (resto  (mas-terminos->resto terminos))
+               (expo   (expo-nat->k (termino->expo actual))))
+          (cond
+            ((> expo exponente)
+             (mas-terminos actual (eliminar-de-terminos resto exponente)))
+            ((= expo exponente)
+             resto)
+            (else
+             (eopl:error 'eliminar-termino "El polinomio no tiene termino con ese exponente")))))))
 
 ;; eliminar-termino : polinomio x natural -> polinomio
 ;; Devuelve el polinomio sin el término con ese exponente. Da error si no existe.
 (define eliminar-termino
   (lambda (polinomio exponente)
-    (eopl:error 'eliminar-termino "Sin implementar")))
+    (cond
+      ((not (exponente-concreto? exponente))
+       (eopl:error 'eliminar-termino "El exponente debe ser un entero no negativo"))
+      ((not (poli? polinomio))
+       (eopl:error 'eliminar-termino "El primer argumento debe ser un polinomio"))
+      (else
+       (poli (poli->var polinomio)
+             (eliminar-de-terminos (poli->terms polinomio) exponente))))))
 
 ;; polinomio->pares : polinomio -> lista de pares (coeficiente . exponente)
 ;; Muestra el polinomio como lista de pares, de mayor a menor exponente.
@@ -451,5 +498,42 @@
 ;; 9. Error: coeficiente no exacto.
 ;; (insertar-termino p 1.5 2) => error: El coeficiente debe ser un numero exacto
 
-;; Pendiente (compañero): 5 ejemplos de coeficiente-de y 5 de eliminar-termino,
-;; cada grupo con su caso de error.
+;; ---- Ejemplos de coeficiente-de ----
+
+;; 1. Exponente al inicio de la lista.
+;; (coeficiente-de p 5)                              => 4
+
+;; 2. Exponente en el medio, coeficiente racional.
+;; (coeficiente-de p 2)                              => -3/2
+
+;; 3. Exponente al final (término independiente).
+;; (coeficiente-de p 0)                              => 7
+
+;; 4. Error: el polinomio nulo no tiene términos.
+;; (coeficiente-de (polinomio-cero 'x) 0)
+;;   => error: El polinomio no tiene termino con ese exponente
+
+;; 5. Error: exponente inexistente (la búsqueda corta en el término de x^2).
+;; (coeficiente-de p 3)
+;;   => error: El polinomio no tiene termino con ese exponente
+
+;; ---- Ejemplos de eliminar-termino ----
+
+;; 1. Eliminar el término del inicio.
+;; (polinomio->pares (eliminar-termino p 5))         => ((-3/2 . 2) (7 . 0))
+
+;; 2. Eliminar el término del medio (coeficiente racional).
+;; (polinomio->pares (eliminar-termino p 2))         => ((4 . 5) (7 . 0))
+
+;; 3. Eliminar el término del final.
+;; (polinomio->pares (eliminar-termino p 0))         => ((4 . 5) (-3/2 . 2))
+
+;; 4. Eliminar el único término deja el polinomio nulo.
+;; (polinomio->pares
+;;   (eliminar-termino (insertar-termino (polinomio-cero 'x) 7 3) 3))   => ()
+
+;; 5. Error: exponente inexistente, y error sobre el polinomio nulo.
+;; (eliminar-termino p 3)
+;;   => error: El polinomio no tiene termino con ese exponente
+;; (eliminar-termino (polinomio-cero 'x) 0)
+;;   => error: El polinomio no tiene termino con ese exponente
