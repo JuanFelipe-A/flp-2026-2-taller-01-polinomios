@@ -127,13 +127,43 @@
 
 ;; --- insertar-termino ---
 
+;; insertar-en-terminos : terminos x numero x natural -> terminos
+;; Recorre la lista una sola vez. Si el exponente actual es mayor, sigue con el
+;; resto; si es menor, el término nuevo va antes; si es igual, suma los
+;; coeficientes (si da 0 quita el término).
+(define insertar-en-terminos
+  (lambda (ts c e)
+    (cases terminos ts
+      (sin-terminos ()
+        (mas-terminos (crear-termino c e) ts))
+      (mas-terminos (actual resto)
+        (let ((k (termino->exponente-concreto actual)))
+          (if (> k e)
+              (mas-terminos actual (insertar-en-terminos resto c e))
+              (if (< k e)
+                  (mas-terminos (crear-termino c e) ts)
+                  (let ((suma (+ (termino->coeficiente-concreto actual) c)))
+                    (if (zero? suma)
+                        resto
+                        (mas-terminos (crear-termino suma e) resto))))))))))
+
 ;; insertar-termino : polinomio x numero x natural -> polinomio
 ;; Inserta el término en su lugar. Si el exponente ya está, suma los
 ;; coeficientes (si da 0 quita el término). Con coeficiente 0 no cambia nada.
 ;; Da error si el exponente no es un entero >= 0 o el coeficiente no es exacto.
 (define insertar-termino
   (lambda (p c e)
-    (eopl:error 'insertar-termino "Sin implementar")))
+    (if (not (exponente-concreto? e))
+        (eopl:error 'insertar-termino "El exponente debe ser un entero no negativo")
+        (if (not (coeficiente-concreto? c))
+            (eopl:error 'insertar-termino "El coeficiente debe ser un numero exacto")
+            (if (not (polinomio? p))
+                (eopl:error 'insertar-termino "El primer argumento debe ser un polinomio")
+                (if (zero? c)
+                    p
+                    (cases polinomio p
+                      (poli (var terms)
+                        (poli var (insertar-en-terminos terms c e))))))))))
 
 ;; --- coeficiente-de y eliminar-termino ---
 
@@ -236,3 +266,32 @@
 
 ;; 3. Error: la variable debe ser un símbolo.
 ;; (polinomio-cero "x")   => error: La variable debe ser un simbolo
+
+;; ---- Ejemplos de insertar-termino ----
+
+;; p = 4x^5 - (3/2)x^2 + 7, armado solo con la interfaz.
+(define p
+  (insertar-termino
+   (insertar-termino
+    (insertar-termino (polinomio-cero 'x) 7 0)
+    -3/2 2)
+   4 5))
+;; (polinomio->pares p)                              => ((4 . 5) (-3/2 . 2) (7 . 0))
+
+;; 1. Exponente nuevo, queda en el medio.
+;; (polinomio->pares (insertar-termino p 2 3))       => ((4 . 5) (2 . 3) (-3/2 . 2) (7 . 0))
+
+;; 2. El exponente ya existe: se suman los coeficientes.
+;; (polinomio->pares (insertar-termino p 1 2))       => ((4 . 5) (-1/2 . 2) (7 . 0))
+
+;; 3. La suma da cero: el término desaparece.
+;; (polinomio->pares (insertar-termino p 3/2 2))     => ((4 . 5) (7 . 0))
+
+;; 4. Coeficiente 0: el polinomio no cambia.
+;; (polinomio->pares (insertar-termino p 0 2))       => ((4 . 5) (-3/2 . 2) (7 . 0))
+
+;; 5. Error: exponente negativo.
+;; (insertar-termino p 5 -1)  => error: El exponente debe ser un entero no negativo
+
+;; 6. Error: coeficiente no exacto.
+;; (insertar-termino p 1.5 2) => error: El coeficiente debe ser un numero exacto
