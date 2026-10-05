@@ -181,11 +181,43 @@
 
 ;; --- sumar ---
 
+;; sumar-terminos : terminos x terminos -> terminos
+;; Recorre las dos listas a la vez, una sola vez. Se queda con el término de
+;; mayor exponente; si los exponentes son iguales suma los coeficientes y, si
+;; da 0, el término desaparece. Cuando una lista se acaba, el resto de la otra
+;; ya está en orden y se deja tal cual.
+(define sumar-terminos
+  (lambda (ts us)
+    (cases terminos ts
+      (sin-terminos () us)
+      (mas-terminos (t resto-t)
+        (cases terminos us
+          (sin-terminos () ts)
+          (mas-terminos (u resto-u)
+            (let ((kt (termino->exponente-concreto t))
+                  (ku (termino->exponente-concreto u)))
+              (if (> kt ku)
+                  (mas-terminos t (sumar-terminos resto-t us))
+                  (if (< kt ku)
+                      (mas-terminos u (sumar-terminos ts resto-u))
+                      (let ((suma (+ (termino->coeficiente-concreto t)
+                                     (termino->coeficiente-concreto u))))
+                        (if (zero? suma)
+                            (sumar-terminos resto-t resto-u)
+                            (mas-terminos (crear-termino suma kt)
+                                          (sumar-terminos resto-t resto-u)))))))))))))
+
 ;; sumar : polinomio x polinomio -> polinomio
 ;; Suma dos polinomios de la misma variable. Da error si las variables son distintas.
 (define sumar
   (lambda (p q)
-    (eopl:error 'sumar "Sin implementar")))
+    (cases polinomio p
+      (poli (var-p terms-p)
+        (cases polinomio q
+          (poli (var-q terms-q)
+            (if (eq? (variable->simbolo var-p) (variable->simbolo var-q))
+                (poli var-p (sumar-terminos terms-p terms-q))
+                (eopl:error 'sumar "Los polinomios deben estar en la misma variable"))))))))
 
 ;; --- Auxiliar de presentación ---
 
@@ -295,3 +327,36 @@
 
 ;; 6. Error: coeficiente no exacto.
 ;; (insertar-termino p 1.5 2) => error: El coeficiente debe ser un numero exacto
+
+;; ---- Ejemplos de sumar ----
+
+;; q = -4x^5 + (1/2)x^2 + 2x
+(define q
+  (insertar-termino
+   (insertar-termino
+    (insertar-termino (polinomio-cero 'x) 2 1)
+    1/2 2)
+   -4 5))
+;; (polinomio->pares q)                              => ((-4 . 5) (1/2 . 2) (2 . 1))
+
+;; 1. El ejemplo del enunciado: el término de x^5 se cancela y el de x^2 se suma.
+;; (polinomio->pares (sumar p q))                    => ((-1 . 2) (2 . 1) (7 . 0))
+
+;; 2. Suma que cancela todo: p + (-p) es el polinomio nulo.
+(define menos-p
+  (insertar-termino
+   (insertar-termino
+    (insertar-termino (polinomio-cero 'x) -7 0)
+    3/2 2)
+   -4 5))
+;; (polinomio->pares menos-p)                        => ((-4 . 5) (3/2 . 2) (-7 . 0))
+;; (polinomio->pares (sumar p menos-p))              => ()
+
+;; 3. Sumar el polinomio nulo no cambia nada.
+;; (polinomio->pares (sumar p (polinomio-cero 'x)))  => ((4 . 5) (-3/2 . 2) (7 . 0))
+
+;; 4. Error: variables distintas.
+;; (sumar p (polinomio-cero 'y))   => error: Los polinomios deben estar en la misma variable
+
+;; Pendiente (compañero): 3 ejemplos de coeficiente-de y 3 de eliminar-termino,
+;; cada grupo con su caso de error.
