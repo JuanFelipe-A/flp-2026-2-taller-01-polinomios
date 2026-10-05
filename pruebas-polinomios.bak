@@ -116,94 +116,21 @@
 ;; Pruebas de coeficiente-de y eliminar-termino (Juan Sebastian)
 ;; =========================================================================
 
-;; bateria-coef-elim : string x cero x ins x coef x elim x ->pares -> void
-;; Pruebas de coeficiente-de y eliminar-termino para una representación.
-(define bateria-coef-elim
-  (lambda (nombre cero ins coef elim ->pares)
-    (with-check-info (('representacion nombre))
-      (let ((p (armar cero ins 'x '((4 . 5) (-3/2 . 2) (7 . 0)))))
-
-        ;; coeficiente-de: exponente al inicio, en el medio y al final
-        (check-equal? (coef p 5) 4)
-        (check-equal? (coef p 2) -3/2)
-        (check-equal? (coef p 0) 7)
-        (check-equal? (coef (armar cero ins 'x '((1/3 . 7))) 7) 1/3)
-        (check-equal? (coef (ins p 2 3) 3) 2)
-
-        ;; coeficiente-de: el polinomio nulo es el caso base y da error
-        (check-exn #rx"no tiene termino"
-                   (lambda () (coef (cero 'x) 0)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (coef (cero 'y) 4)))
-
-        ;; coeficiente-de: exponente inexistente (mayor, en el hueco, menor)
-        (check-exn #rx"no tiene termino"
-                   (lambda () (coef p 9)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (coef p 3)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (coef p 1)))
-
-        ;; coeficiente-de: errores de validación
-        (check-exn #rx"entero no negativo"
-                   (lambda () (coef p -1)))
-        (check-exn #rx"entero no negativo"
-                   (lambda () (coef (cero 'x) -2)))
-        (check-exn #rx"entero no negativo"
-                   (lambda () (coef p 3/2)))
-        (check-exn #rx"debe ser un polinomio"
-                   (lambda () (coef 'no-es-un-polinomio 2)))
-
-        ;; eliminar-termino: exponente al inicio, en el medio y al final
-        (check-equal? (->pares (elim p 5)) '((-3/2 . 2) (7 . 0)))
-        (check-equal? (->pares (elim p 2)) '((4 . 5) (7 . 0)))
-        (check-equal? (->pares (elim p 0)) '((4 . 5) (-3/2 . 2)))
-
-        ;; eliminar-termino: el único término deja el polinomio nulo
-        (check-equal? (->pares (elim (armar cero ins 'x '((7 . 3))) 3)) '())
-
-        ;; eliminar-termino: eliminar todos los términos uno por uno
-        (check-equal? (->pares (elim (elim (elim p 5) 2) 0)) '())
-
-        ;; eliminar-termino: no modifica el original ni cambia la variable
-        (check-equal? (->pares (let ((q (elim p 2))) p))
-                      '((4 . 5) (-3/2 . 2) (7 . 0)))
-        (check-equal? (->pares (elim (armar cero ins 'y '((5 . 1) (2 . 0))) 1))
-                      '((2 . 0)))
-
-        ;; eliminar-termino: insertar lo eliminado devuelve el polinomio original
-        (check-equal? (->pares (ins (elim p 2) -3/2 2))
-                      '((4 . 5) (-3/2 . 2) (7 . 0)))
-
-        ;; eliminar-termino: el polinomio nulo es el caso base y da error
-        (check-exn #rx"no tiene termino"
-                   (lambda () (elim (cero 'x) 0)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (elim (cero 'y) 3)))
-
-        ;; eliminar-termino: exponente inexistente (mayor, en el hueco, menor)
-        (check-exn #rx"no tiene termino"
-                   (lambda () (elim p 9)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (elim p 3)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (elim p 1)))
-        (check-exn #rx"no tiene termino"
-                   (lambda () (elim (elim p 5) 5)))
-
-        ;; eliminar-termino: errores de validación
-        (check-exn #rx"entero no negativo"
-                   (lambda () (elim p -1)))
-        (check-exn #rx"entero no negativo"
-                   (lambda () (elim (cero 'x) -2)))
-        (check-exn #rx"entero no negativo"
-                   (lambda () (elim p 3/2)))
-        (check-exn #rx"debe ser un polinomio"
-                   (lambda () (elim 'no-es-un-polinomio 2)))))))
-
-(bateria-coef-elim "listas" listas:polinomio-cero listas:insertar-termino
-                   listas:coeficiente-de listas:eliminar-termino listas:polinomio->pares)
-(bateria-coef-elim "procedimientos" procs:polinomio-cero procs:insertar-termino
-                   procs:coeficiente-de procs:eliminar-termino procs:polinomio->pares)
-(bateria-coef-elim "datatypes" dt:polinomio-cero dt:insertar-termino
-                   dt:coeficiente-de dt:eliminar-termino dt:polinomio->pares)
+;; Pendiente (compañero). Escribir aquí una batería con la misma forma que
+;; bateria-cero-insertar:
+;;
+;;   (define bateria-coef-elim
+;;     (lambda (nombre cero ins coef elim ->pares)
+;;       (with-check-info (('representacion nombre))
+;;         ... pruebas ...)))
+;;
+;; y llamarla una vez por representación:
+;;
+;;   (bateria-coef-elim "listas" listas:polinomio-cero listas:insertar-termino
+;;                      listas:coeficiente-de listas:eliminar-termino listas:polinomio->pares)
+;;   (bateria-coef-elim "procedimientos" procs:polinomio-cero ...)
+;;   (bateria-coef-elim "datatypes" dt:polinomio-cero ...)
+;;
+;; Debe cubrir: casos funcionales de coeficiente-de y eliminar-termino, el
+;; polinomio nulo como caso base (consultar y eliminar), y los errores de
+;; exponente inexistente en las dos funciones.
