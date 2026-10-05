@@ -84,47 +84,126 @@ $f_p$ está bien definida.
 **Especificación.**
 
 - **Tipo:** `coeficiente-de : polinomio × exponente -> coeficiente`
-- **Pre-condición:** $\mathrm{Inv}(p)$ y {{condición sobre el
-  exponente consultado}}.
-- **Post-condición:** $\text{Post}(p, e, r) \equiv {{\ldots}}$ cuando
+- **Pre-condición:** $\mathrm{Inv}(p)$ y $e \in \mathbb{N}$. Si $e$ no es
+  un entero no negativo o si $p$ no es un polinomio, la función levanta
+  `eopl:error` antes de recorrer nada.
+- **Post-condición:** $\text{Post}(p, e, r) \equiv r = f_p(e)$ cuando
   el exponente $e$ aparece en $p$; y la función levanta
   `eopl:error` cuando no aparece.
 
 **Código.**
 
 ```racket
-; coeficiente-de : {{contrato}}
-; Propósito: {{...}}
-(define (coeficiente-de p e)
-  ...)
+; buscar-coeficiente : terminos x natural -> numero
+; Recorre la lista una sola vez y corta apenas el exponente actual es menor que el buscado.
+(define buscar-coeficiente
+  (lambda (terminos exponente)
+    (if (sin-terminos? terminos)
+        (eopl:error 'coeficiente-de "El polinomio no tiene termino con ese exponente")
+        (let* ((actual (mas-terminos->term terminos))
+               (resto  (mas-terminos->resto terminos))
+               (expo   (expo-nat->k (termino->expo actual))))
+          (cond
+            ((> expo exponente)
+             (buscar-coeficiente resto exponente))
+            ((= expo exponente)
+             (coeficiente->concreto (termino->coef actual)))
+            (else
+             (eopl:error 'coeficiente-de "El polinomio no tiene termino con ese exponente")))))))
+
+; coeficiente-de : polinomio x natural -> numero
+; Devuelve el coeficiente del término con ese exponente. Da error si no existe.
+(define coeficiente-de
+  (lambda (polinomio exponente)
+    (cond
+      ((not (exponente-concreto? exponente))
+       (eopl:error 'coeficiente-de "El exponente debe ser un entero no negativo"))
+      ((not (poli? polinomio))
+       (eopl:error 'coeficiente-de "El primer argumento debe ser un polinomio"))
+      (else
+       (buscar-coeficiente (poli->terms polinomio) exponente)))))
 ```
 
-**Demostración.**
+La recursión vive en `buscar-coeficiente`; `coeficiente-de` solo valida
+y la llama con la lista de términos de $p$.
 
-- **Caso base** ($\text{sin-terminos}$): {{qué hace el programa y por
-  qué eso es exactamente levantar el error.}}
+**Lema.** Sea $L$ una lista de términos con $\mathrm{Inv}(L)$ y
+$e \in \mathbb{N}$. Si $e$ aparece en $L$, entonces
+`buscar-coeficiente`$(L, e) = f_L(e)$; si no aparece, levanta
+`eopl:error`.
+
+**Demostración** por inducción estructural sobre $L$.
+
+- **Caso base** ($L = \text{sin-terminos}()$): la lista no tiene
+  términos, así que $e$ no aparece en ella. El programa entra por la
+  rama `sin-terminos?` y levanta `eopl:error`. Eso es exactamente lo
+  que pide la especificación cuando el exponente no está.
 
   $$
-  {{\ldots}}
+  \text{buscar-coeficiente}(\text{sin-terminos}(), e) = \text{error}
+  \qquad \text{y} \qquad e \notin \text{sin-terminos}()
   $$
 
-- **Caso inductivo** ($\text{mas-terminos}(t, r)$): distinga los tres
-  subcasos según la comparación entre el exponente de $t$ y el
-  exponente buscado. {{Uno de ellos usa la hipótesis de inducción
-  sobre $r$; explique por qué el orden estricto del invariante permite
-  cortar la búsqueda sin recorrer el resto de la lista.}}
+- **Caso inductivo** ($L = \text{mas-terminos}(t, r)$ con
+  $t = (c', k)$): de $\mathrm{Inv}(L)$ salen tres hechos: $c' \neq 0$,
+  $k > e_j$ para todo exponente $e_j$ de $r$ (el orden es estricto y
+  $t$ va primero) y $\mathrm{Inv}(r)$, porque un sufijo conserva las
+  cuatro propiedades. Hay tres comparaciones entre $k$ y $e$:
+
+  - **$k > e$ (paso recursivo).** El programa llama
+    `buscar-coeficiente`$(r, e)$. Como $k \neq e$, el término $t$ no es
+    el buscado, así que $e$ aparece en $L$ si y solo si aparece en $r$,
+    y $f_L(e) = f_r(e)$. Por **hipótesis de inducción** sobre $r$, la
+    llamada devuelve $f_r(e) = f_L(e)$ si $e$ aparece en $r$, y levanta
+    error si no aparece.
+
+  - **$k = e$.** El término buscado es $t$. El programa devuelve
+    $c'$ convertido con `coeficiente->concreto`, es decir
+    $f_L(e) = c'$. No hay llamada recursiva.
+
+  - **$k < e$ (corte).** Por el orden estricto, todos los exponentes
+    de $L$ son menores o iguales que $k$: $k$ es el mayor (va primero)
+    y los de $r$ son todavía menores. Entonces todos son menores que
+    $e$ y $e$ **no** aparece en $L$. Por eso el programa puede
+    levantar el error sin mirar $r$: seguir buscando es inútil. Sin el
+    orden estricto del invariante este corte sería incorrecto, porque
+    el exponente buscado podría estar más adelante.
 
   $$
-  {{\ldots}}
+  \text{buscar-coeficiente}(t :: r, e) =
+  \begin{cases}
+    \text{buscar-coeficiente}(r, e) & \text{si } k > e \\
+    c' & \text{si } k = e \\
+    \text{error} & \text{si } k < e
+  \end{cases}
   $$
 
-- **Levantamiento del error.** Demuestre que el error se levanta
-  cuando el exponente no está y **solo** en ese caso.
+- **Levantamiento del error.** El error sale de dos lugares: la rama
+  base (lista vacía) y la rama $k < e$. En ambos $e$ no aparece en la
+  lista actual, y por hipótesis de inducción un error que llega desde
+  la llamada sobre $r$ (caso $k > e$) significa que $e$ no aparece en
+  $r$, y por tanto tampoco en $L$. Así, si hay error entonces $e$ no
+  está. Recíprocamente, si $e$ aparece en $L$ nunca se llega a una rama
+  de error: en la base es imposible, $k < e$ es imposible porque
+  implicaría que $e$ no aparece, y en $k > e$ se aplica la hipótesis
+  de inducción sobre $r$, que contiene a $e$. Luego el error se
+  levanta cuando el exponente no está y **solo** en ese caso. Los
+  errores de validación (`exponente` no natural, argumento que no es
+  polinomio) se levantan antes, en `coeficiente-de`, y no entran en
+  esta demostración porque violan la pre-condición.
 
-- **Terminación.** {{Medida que decrece estrictamente en cada llamada
-  y cota inferior.}}
+- **Terminación.** La medida es $n$, el número de términos de $L$. La
+  única llamada recursiva ocurre en el caso $k > e$ y se hace sobre
+  $r$, que tiene $n - 1$ términos: la medida decrece estrictamente en
+  cada llamada. Cuando $n = 0$ (`sin-terminos`) no hay llamada, así que
+  la cota inferior es $0$ y la recursión termina. En total hay a lo
+  sumo $n + 1$ invocaciones: la lista se recorre una sola vez.
 
-**Conclusión:** {{...}}
+**Conclusión:** para cualquier $p$ con $\mathrm{Inv}(p)$ y entradas
+válidas, `coeficiente-de` devuelve $f_p(e)$ cuando el exponente $e$
+aparece en $p$ y levanta `eopl:error` cuando no aparece, recorriendo la
+lista como máximo una vez y cortando apenas el exponente actual es
+menor que el buscado.
 
 ---
 
@@ -133,231 +212,128 @@ $f_p$ está bien definida.
 **Especificación.**
 
 - **Tipo:** `eliminar-termino : polinomio × exponente -> polinomio`
-- **Pre-condición:** $\mathrm{Inv}(p)$ y {{...}}.
+- **Pre-condición:** $\mathrm{Inv}(p)$ y $e \in \mathbb{N}$. Si $e$ no
+  es un entero no negativo o si $p$ no es un polinomio, la función
+  levanta `eopl:error` antes de construir nada.
 - **Post-condición:** el resultado contiene **exactamente** los
   términos de $p$ menos el de exponente $e$. Formalmente:
   $$
-  \text{terminos}(r) = \text{terminos}(p) \setminus \{{\ldots}\}
+  \text{terminos}(r) = \text{terminos}(p) \setminus \{(f_p(e),\, e)\}
   $$
-  y la función levanta `eopl:error` si $e$ no aparece en $p$.
+  con la misma variable que $p$ y $\mathrm{Inv}(r)$, y la función
+  levanta `eopl:error` si $e$ no aparece en $p$.
 
 **Código.**
 
 ```racket
-(define (eliminar-termino p e)
-  ...)
-```
-
-**Demostración.** Siga el esquema de 2.1: caso base, caso inductivo
-con hipótesis de inducción, error y terminación. {{Además de la
-igualdad de conjuntos de términos, argumente que el resultado sigue
-cumpliendo $\mathrm{Inv}$: quitar un término no rompe el orden
-estricto ni introduce ceros.}}
-
----
-
-### 2.3 `insertar-termino` preserva el invariante
-
-**Enunciado.** Si $\mathrm{Inv}(p)$ vale antes de la llamada, entonces
-$\mathrm{Inv}(\texttt{insertar-termino}(p, c, e))$ vale sobre el
-resultado.
-
-**Especificación.**
-
-- **Tipo:** `insertar-termino : polinomio × número × natural -> polinomio`
-- **Pre-condición:** $\mathrm{Inv}(p)$, $c \in \mathbb{Q}$ exacto y
-  $e \in \mathbb{N}$. Si $e$ no es un entero no negativo, si $c$ no es
-  un número exacto o si $p$ no es un polinomio, la función levanta
-  `eopl:error` antes de construir nada.
-- **Post-condición:** el resultado $r$ tiene la misma variable que $p$,
-  cumple $\mathrm{Inv}(r)$ y
-
-  $$
-  f_r(x) =
-  \begin{cases}
-    f_p(e) + c & \text{si } x = e \\
-    f_p(x)     & \text{si } x \neq e
-  \end{cases}
-  $$
-
-**Código.**
-
-```racket
-; insertar-en-terminos : terminos x numero x natural -> terminos
-; Recorre la lista una sola vez. Si el exponente actual es mayor, sigue con el
-; resto; si es menor, el término nuevo va antes; si es igual, suma los
-; coeficientes (si da 0 quita el término).
-(define insertar-en-terminos
-  (lambda (terminos coeficiente exponente)
+; eliminar-de-terminos : terminos x natural -> terminos
+; Recorre la lista una sola vez y corta apenas el exponente actual es menor que el buscado.
+(define eliminar-de-terminos
+  (lambda (terminos exponente)
     (if (sin-terminos? terminos)
-        (mas-terminos (crear-termino coeficiente exponente) terminos)
+        (eopl:error 'eliminar-termino "El polinomio no tiene termino con ese exponente")
         (let* ((actual (mas-terminos->term terminos))
                (resto  (mas-terminos->resto terminos))
                (expo   (expo-nat->k (termino->expo actual))))
           (cond
             ((> expo exponente)
-             (mas-terminos actual (insertar-en-terminos resto coeficiente exponente)))
-            ((< expo exponente)
-             (mas-terminos (crear-termino coeficiente exponente) terminos))
+             (mas-terminos actual (eliminar-de-terminos resto exponente)))
+            ((= expo exponente)
+             resto)
             (else
-             (let ((suma (+ (coeficiente->concreto (termino->coef actual)) coeficiente)))
-               (if (zero? suma)
-                   resto
-                   (mas-terminos (crear-termino suma exponente) resto)))))))))
+             (eopl:error 'eliminar-termino "El polinomio no tiene termino con ese exponente")))))))
 
-; insertar-termino : polinomio x numero x natural -> polinomio
-; Inserta el término en su lugar. Si el exponente ya está, suma los
-; coeficientes (si da 0 quita el término). Con coeficiente 0 no cambia nada.
-(define insertar-termino
-  (lambda (polinomio coeficiente exponente)
+; eliminar-termino : polinomio x natural -> polinomio
+; Devuelve el polinomio sin el término con ese exponente. Da error si no existe.
+(define eliminar-termino
+  (lambda (polinomio exponente)
     (cond
       ((not (exponente-concreto? exponente))
-       (eopl:error 'insertar-termino "El exponente debe ser un entero no negativo"))
-      ((not (coeficiente-concreto? coeficiente))
-       (eopl:error 'insertar-termino "El coeficiente debe ser un numero exacto"))
+       (eopl:error 'eliminar-termino "El exponente debe ser un entero no negativo"))
       ((not (poli? polinomio))
-       (eopl:error 'insertar-termino "El primer argumento debe ser un polinomio"))
-      ((zero? coeficiente)
-       polinomio)
+       (eopl:error 'eliminar-termino "El primer argumento debe ser un polinomio"))
       (else
        (poli (poli->var polinomio)
-             (insertar-en-terminos (poli->terms polinomio) coeficiente exponente))))))
+             (eliminar-de-terminos (poli->terms polinomio) exponente))))))
 ```
 
-La recursión vive en `insertar-en-terminos`. El siguiente diagrama
-resume sus ramas; cada una se justifica abajo.
-
-```mermaid
-flowchart TD
-    A["insertar-en-terminos(L, c, e)"] --> B{"L = sin-terminos?"}
-    B -- "sí" --> C["(c, e) :: L<br/>caso A"]
-    B -- "no: L = (c', k) :: r" --> D{"k comparado con e"}
-    D -- "k > e" --> E["(c', k) :: insertar-en-terminos(r, c, e)<br/>hipótesis de inducción"]
-    D -- "k < e" --> F["(c, e) :: L<br/>caso A"]
-    D -- "k = e" --> G{"c' + c = 0?"}
-    G -- "no" --> H["(c' + c, e) :: r<br/>caso B"]
-    G -- "sí" --> I["r<br/>caso C"]
-```
-
-**Paso 0: validaciones y coeficiente cero.** Si alguna validación
-falla se levanta el error y no se construye ningún polinomio, así que
-no hay nada que verificar. Si $c = 0$ la función devuelve $p$ sin
-tocarlo: $\mathrm{Inv}(r) = \mathrm{Inv}(p)$ y $f_r = f_p = f_p + 0$.
-Este caso se saca antes de la recursión por una razón concreta: si se
-insertara un término $(0, e)$ se rompería la segunda condición del
-invariante (sin ceros). Desde aquí $c \neq 0$ y la función solo arma
-`poli(var, insertar-en-terminos(L, c, e))`, con la misma variable, así
-que basta demostrar el lema siguiente sobre la lista $L$ de términos
-de $p$.
-
-**Observación sobre coeficientes reducidos.** Todo término nuevo se
-arma con `crear-termino`, que traduce el número de Racket con
-`concreto->coeficiente`. Un entero queda como `coef-ent`; una fracción
-queda como `coef-rac` con `numerator` y `denominator`, y estos
-devuelven la fracción reducida con denominador positivo. Por eso todo
-término creado cumple la cuarta condición, y cumple la tercera porque
-su exponente es el $e \in \mathbb{N}$ de la pre-condición. Además, la
-suma de dos racionales exactos es un racional exacto, así que la
-observación también vale para $c' + c$.
-
-**Lema.** Sea $L$ una lista de términos con $\mathrm{Inv}(L)$, sea
-$c \in \mathbb{Q} \setminus \{0\}$ y $e \in \mathbb{N}$. Entonces
-$R = \texttt{insertar-en-terminos}(L, c, e)$ cumple $\mathrm{Inv}(R)$ y
-$f_R(e) = f_L(e) + c$, $f_R(x) = f_L(x)$ para $x \neq e$.
+**Lema.** Sea $L$ una lista de términos con $\mathrm{Inv}(L)$ y
+$e \in \mathbb{N}$. Si $e$ aparece en $L$, entonces
+$R = $ `eliminar-de-terminos`$(L, e)$ cumple $\mathrm{Inv}(R)$ y
+$\text{terminos}(R) = \text{terminos}(L) \setminus \{(f_L(e), e)\}$,
+con los términos restantes en el mismo orden. Si $e$ no aparece,
+levanta `eopl:error`.
 
 **Demostración** por inducción estructural sobre $L$.
 
-- **Caso A, base: $L = \text{sin-terminos}()$.** El resultado es
-  $R = [(c, e)]$.
+- **Caso base** ($L = \text{sin-terminos}()$): no hay términos, $e$ no
+  aparece y el programa levanta `eopl:error`, como pide la
+  especificación.
 
-  | Condición | Por qué se cumple |
-  |---|---|
-  | Orden estricto | Un solo término: no hay pares consecutivos que comparar. |
-  | Sin ceros | $c \neq 0$ por el Paso 0. |
-  | Exponentes naturales | $e \in \mathbb{N}$ por la pre-condición. |
-  | Reducidos | Observación sobre coeficientes reducidos. |
+- **Caso inductivo** ($L = \text{mas-terminos}(t, r)$ con
+  $t = (c', k)$): de $\mathrm{Inv}(L)$ salen $c' \neq 0$, $k > e_j$
+  para todo exponente $e_j$ de $r$ y $\mathrm{Inv}(r)$. Tres subcasos:
 
-  Además $f_R(e) = c = 0 + c = f_L(e) + c$, porque $L$ no tiene
-  términos.
+  - **$k > e$ (paso recursivo).** El resultado es $R = t :: R'$ con
+    $R' = $ `eliminar-de-terminos`$(r, e)$. Como $k \neq e$, $e$ aparece
+    en $L$ si y solo si aparece en $r$. Por **hipótesis de inducción**,
+    $R'$ cumple $\mathrm{Inv}(R')$ y
+    $\text{terminos}(R') = \text{terminos}(r) \setminus \{(f_r(e), e)\}$
+    (o hay error si $e \notin r$). Entonces
+    $\text{terminos}(R) = \{t\} \cup \text{terminos}(R')
+    = \text{terminos}(L) \setminus \{(f_L(e), e)\}$, porque $t$ no es
+    el término de exponente $e$. Para $\mathrm{Inv}(R)$: $t$ no cambió,
+    así que sigue sin cero, con exponente natural y coeficiente
+    reducido; los exponentes de $R'$ son un subconjunto de los de $r$,
+    todos menores que $k$, así que $t$ puede ir delante de $R'$ sin
+    romper el orden estricto; lo demás viene de $\mathrm{Inv}(R')$.
 
-- **Caso inductivo: $L = \text{mas-terminos}(t, r)$ con $t = (c', k)$.**
-  De $\mathrm{Inv}(L)$ salen tres hechos: $c' \neq 0$, $k > e_j$ para
-  todo exponente $e_j$ de $r$ (el orden es estricto y $t$ va primero),
-  y $\mathrm{Inv}(r)$, porque un sufijo de una lista con orden
-  estricto, sin ceros, con exponentes naturales y coeficientes
-  reducidos conserva las cuatro propiedades. La hipótesis de inducción
-  dice que $R' = \texttt{insertar-en-terminos}(r, c, e)$ cumple
-  $\mathrm{Inv}(R')$ y la post-condición sobre $r$. Hay tres
-  comparaciones posibles entre $k$ y $e$:
+  - **$k = e$.** El resultado es $R = r$. Los términos de $R$ son los
+    de $L$ menos $t = (c', e)$, que es el término de exponente $e$, y
+    en el mismo orden. $\mathrm{Inv}(R) = \mathrm{Inv}(r)$ vale porque
+    un sufijo de una lista con $\mathrm{Inv}$ conserva el orden
+    estricto de los términos que quedan, y como solo se quita un
+    término no se crea ningún coeficiente cero. No hay llamada
+    recursiva.
 
-  - **$k > e$ (paso recursivo).** El resultado es $R = t :: R'$. El
-    término $t$ no cambió, así que sigue sin cero, con exponente
-    natural y reducido. Los exponentes de $R'$ salen de los de $r$ y
-    posiblemente de $e$, y todos son menores que $k$: los de $r$ por el
-    hecho anterior y $e$ por la hipótesis $k > e$. Por eso $t$ puede ir
-    delante de $R'$ sin romper el orden estricto. El resto de
-    $\mathrm{Inv}(R)$ viene de $\mathrm{Inv}(R')$. Para $f_R$: como
-    $k \neq e$, el término $t$ aporta $f_R(k) = c' = f_L(k)$, y en los
-    demás exponentes $f_R$ coincide con $f_{R'}$, que por hipótesis de
-    inducción vale $f_r(e) + c$ en $e$ y $f_r(x)$ en el resto. Como
-    $f_L$ y $f_r$ coinciden fuera de $k$, se obtiene
-    $f_R(e) = f_L(e) + c$ y $f_R(x) = f_L(x)$ para $x \neq e$.
+  - **$k < e$ (corte).** Igual que en 2.1, por el orden estricto
+    todos los exponentes de $L$ son menores que $e$, así que $e$ no
+    aparece y se levanta el error sin recorrer $r$.
 
-  - **Caso A, $k < e$: el exponente es nuevo.** El resultado es
-    $R = (c, e) :: L$. Como $k$ es el mayor exponente de $L$ (el
-    primero) y $e > k$, el nuevo término es el de mayor exponente y
-    el orden estricto se conserva. El nuevo término cumple las otras
-    tres condiciones igual que en la base, y los términos de $L$ no
-    cambian. Aquí $f_L(e) = 0$ porque $e$ no está, y $f_R(e) = c$. La
-    cola $L$ se comparte sin copiarse.
+  $$
+  \text{eliminar-de-terminos}(t :: r, e) =
+  \begin{cases}
+    t :: \text{eliminar-de-terminos}(r, e) & \text{si } k > e \\
+    r & \text{si } k = e \\
+    \text{error} & \text{si } k < e
+  \end{cases}
+  $$
 
-  - **$k = e$: el exponente ya existía.** Sea $s = c' + c$.
+- **Levantamiento del error.** Igual que en 2.1: el error solo sale de
+  la rama base y de la rama $k < e$, y en ambas $e$ no aparece. El
+  error que llega desde la llamada sobre $r$ (caso $k > e$) significa,
+  por hipótesis de inducción, que $e \notin r$, y por tanto
+  $e \notin L$. Si $e$ aparece, nunca se llega a una rama de error.
 
-    - **Caso B, $s \neq 0$.** El resultado es $R = (s, e) :: r$. El
-      término nuevo ocupa la misma posición que $t$ y tiene su mismo
-      exponente $e = k$, que sigue siendo mayor que todos los de $r$,
-      así que el orden estricto no cambia. Es distinto de cero por la
-      hipótesis $s \neq 0$, su exponente es natural y su coeficiente
-      está reducido por la observación (es un racional exacto
-      traducido con `concreto->coeficiente`). El resto $r$ cumple
-      $\mathrm{Inv}$ por ser sufijo. Además $f_R(e) = c' + c = f_L(e)
-      + c$.
+- **Terminación.** La medida es $n$, el número de términos de $L$. La
+  única llamada recursiva (caso $k > e$) se hace sobre $r$, con
+  $n - 1$ términos, así que decrece estrictamente. Con $n = 0$ no hay
+  llamada: la cota inferior es $0$ y la recursión termina, con a lo
+  sumo $n + 1$ invocaciones.
 
-    - **Caso C, $s = 0$.** El resultado es $R = r$. Un sufijo de una
-      lista con $\mathrm{Inv}$ también cumple $\mathrm{Inv}$: quitar
-      el primer término no altera el orden de los restantes ni
-      introduce ceros, y esto es justo lo que exige la segunda
-      condición, porque el término con suma cero **no** puede quedar
-      en la lista. Además $f_R(e) = 0 = c' + c = f_L(e) + c$, ya que
-      en $r$ no hay término con exponente $e$.
-
-  En los tres subcasos queda $\mathrm{Inv}(R)$ y la post-condición,
-  con lo que se cierra la inducción. $\blacksquare$
-
-**Resumen de los cuatro escenarios.** $\checkmark$ indica que la
-condición se conserva.
-
-| Escenario | Resultado | Orden estricto | Sin ceros | Naturales | Reducidos |
-|---|---|:-:|:-:|:-:|:-:|
-| A: $L$ vacía o $e$ mayor que todos | $(c, e) :: L$ | $\checkmark$ | $\checkmark$ | $\checkmark$ | $\checkmark$ |
-| A: $e$ menor que el actual | $t :: R'$ | $\checkmark$ (hip. de inducción) | $\checkmark$ | $\checkmark$ | $\checkmark$ |
-| B: existe y $s \neq 0$ | $(s, e) :: r$ | $\checkmark$ (mismo exponente) | $\checkmark$ ($s \neq 0$) | $\checkmark$ | $\checkmark$ |
-| C: existe y $s = 0$ | $r$ | $\checkmark$ (sufijo) | $\checkmark$ (se quitó el cero) | $\checkmark$ | $\checkmark$ |
-
-**Terminación.** La medida es $n$, el número de términos de $L$. La
-única llamada recursiva ocurre en el caso $k > e$ y se hace sobre
-$r$, que tiene $n - 1$ términos: la medida decrece estrictamente en
-cada llamada. Cuando $n = 0$ (`sin-terminos`) no hay llamada, así que
-la cota inferior es $0$ y la recursión termina. En total hay a lo sumo
-$n + 1$ invocaciones: la lista se recorre una sola vez y no se
-reordena después.
+- **El resultado sigue cumpliendo $\mathrm{Inv}$.** `eliminar-termino`
+  arma `poli(var, eliminar-de-terminos(L, e))` con la misma variable de
+  $p$. Quitar un término no rompe el orden estricto (los que quedan
+  conservan su orden relativo y siguen siendo estrictamente
+  decrecientes) ni introduce ceros (no se crea ningún coeficiente
+  nuevo), y los exponentes naturales y coeficientes reducidos son los
+  de los términos originales. Por tanto $\mathrm{Inv}(r)$.
 
 **Conclusión:** para cualquier $p$ con $\mathrm{Inv}(p)$ y entradas
-válidas, `insertar-termino` devuelve un polinomio que cumple
-$\mathrm{Inv}$ y cuyo contenido es el de $p$ con $c$ sumado en el
-exponente $e$. Un término nuevo se coloca en su lugar, una suma
-distinta de cero lo reemplaza, una suma cero lo elimina, y un
-coeficiente de entrada igual a cero no cambia nada.
+válidas, `eliminar-termino` devuelve un polinomio con la misma
+variable, que cumple $\mathrm{Inv}$ y cuyos términos son exactamente
+los de $p$ menos el de exponente $e$; si $e$ no aparece, levanta
+`eopl:error`.
 
 ---
 
